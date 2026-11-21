@@ -1,0 +1,88 @@
+name: CI/CD
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+env:
+  AWS_REGION: eu-north-1
+  API_FUNCTION: zlecenia-api-daniel
+  ECR_REPOSITORY: zlecenia-rules-daniel
+
+jobs:
+  testy:
+    name: Testy jednostkowe
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Testy modułu reguł
+        run: python -m unittest discover -s testy -p 'test_*.py' -v
+
+  wdrozenie:
+    name: Wdrożenie na AWS
+    needs: testy
+    # Tylko zmiana na main – pull request uruchamia same testy
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write   # token OIDC dla AWS
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Logowanie do AWS przez OIDC (bez kluczy)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          mask-aws-account-id: true
+
+      - name: Wersja i tag obrazu
+        id: ver
+        run: |
+          echo "version=$(tr -d '[:space:]' < VERSION)" >> "$GITHUB_OUTPUT"
+          echo "tag=${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+
+      - name: Aktualizacja istniejącej funkcji API
+        env:
+          VERSION: ${{ steps.ver.outputs.version }}
+        run: |
+          (cd src/api && zip -q ../../api.zip handler.py)
+          aws lambda update-function-code --function-name "$API_FUNCTION" --zip-file fileb://api.zip > /dev/null
+          aws lambda wait function-updated-v2 --function-name "$API_FUNCTION"
+          ENV_JSON=$(aws lambda get-function-configuration --function-name "$API_FUNCTION" --query Environment --output json \
+            | jq -c --arg v "$VERSION" '.Variables.API_VERSION = $v')
+          aws lambda update-function-configuration --function-name "$API_FUNCTION" --environment "$ENV_JSON" > /dev/null
+          aws lambda wait function-updated-v2 --function-name "$API_FUNCTION"
+          echo "Funkcja $API_FUNCTION zaktualizowana, apiVersion = $VERSION"
+
+      - name: Logowanie do prywatnego ECR
+        id: ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Budowa i publikacja obrazu (tag = SHA commita)
+        env:
+          REGISTRY: ${{ steps.ecr.outputs.registry }}
+          VERSION: ${{ steps.ver.outputs.version }}
+          TAG: ${{ steps.ver.outputs.tag }}
+        run: |
+          docker build --platform linux/amd64 -f container/Dockerfile \
+            --build-arg APP_VERSION="$VERSION" --build-arg GIT_SHA="$TAG" \
+            -t "$REGISTRY/$ECR_REPOSITORY:$TAG" .
+          docker push "$REGISTRY/$ECR_REPOSITORY:$TAG"
+          DIGEST=$(aws ecr describe-images --repository-name "$ECR_REPOSITORY" --image-ids imageTag="$TAG" \
+            --query 'imageDetails[0].imageDigest' --output text)
+          {
+            echo "### Wdrożenie"
+            echo "- apiVersion: \`$VERSION\`"
+            echo "- commit: \`$GITHUB_SHA\`"
+            echo "- obraz ECR: \`$ECR_REPOSITORY:$TAG\`"
+            echo "- digest: \`$DIGEST\`"
+          } >> "$GITHUB_STEP_SUMMARY"
