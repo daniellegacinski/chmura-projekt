@@ -5,7 +5,9 @@ export AWS_PAGER=""
 cd "$(dirname "$0")/.."
 
 ACCOUNT=$(aws sts get-caller-identity --query Account --output text)
-GH_REPO=daniellegacinski/chmura-projekt
+# GitHub wysyła "sub" ze stałymi ID właściciela i repozytorium: repo:<login>@<id>/<repo>@<id>:ref:...
+# (wartości odczytane z CloudTrail po pierwszej odrzuconej próbie)
+GH_REPO="daniellegacinski@240736078/chmura-projekt@1466500022"
 ROLE=github-deploy-daniel
 ECR_REPO=zlecenia-rules-daniel
 API_FUNC=zlecenia-api-daniel

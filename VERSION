@@ -1,1 +1,1 @@
-2.0.0
+[IO.File]::WriteAllText((Join-Path (Get-Location) "VERSION"), "2.0.1`n")
