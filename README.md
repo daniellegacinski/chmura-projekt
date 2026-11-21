@@ -10,7 +10,8 @@
 ## Kontrakt API
 - Adres: `https://ggwh1qprfa.execute-api.eu-north-1.amazonaws.com` (HTTP API, etap `$default`)
 - Dostęp do tras: bez autoryzacji (`NONE`), dane wyłącznie syntetyczne
-- `apiVersion`: tekst `MAJOR.MINOR.PATCH` (zmienna `API_VERSION` funkcji): `1.0.0` w Lab 4, `1.1.0` od Lab 5
+- `apiVersion`: tekst `MAJOR.MINOR.PATCH` (zmienna `API_VERSION` funkcji):
+  `1.0.0` w Lab 4, `1.1.0` od Lab 5, od Lab 7 ustawiana przez CI/CD z pliku `VERSION` (`2.0.0`, `2.0.1`)
 - `POST /requests`, treść:
   `{"requestId": "<UUID>", "scenario": "normal" | "transient_once", "payload": {"sku": "SKU-A", "quantity": 2}}`
   - `sku`: `SKU-` + wielkie litery/cyfry, `quantity`: liczba całkowita 1–1000
@@ -36,6 +37,15 @@ To samo `requestId` jest w API, wiadomości, tabeli i logach.
 - Chwilowy błąd nie jest odrzuceniem biznesowym: zlecenie zostaje `PENDING` do udanej próby
 - Testy: `python3 -m unittest discover -s testy -p 'test_*.py' -v`
 
+## CI/CD (od Lab 7)
+- Workflow: `.github/workflows/ci-cd.yml`
+  - testy na każdym pull requeście i zmianie na `main`
+  - wdrożenie tylko po zmianie na `main` i tylko gdy testy przejdą: aktualizacja funkcji `zlecenia-api-daniel` + obraz w ECR
+- Wersja API: plik `VERSION`
+- Dostęp do AWS przez OIDC (bez kluczy), rola `github-deploy-daniel`, ARN w sekrecie `AWS_ROLE_ARN`
+- Obraz z modułem reguł (`container/`): prywatne ECR `zlecenia-rules-daniel`, tag = 7 znaków SHA commita
+- Commity z samymi dowodami mają w opisie `[skip ci]`, żeby nie uruchamiać wdrożenia
+
 ## Moje zasoby
 | Lab | Zasób | Nazwa |
 |---|---|---|
@@ -49,4 +59,7 @@ To samo `requestId` jest w API, wiadomości, tabeli i logach.
 | 5 | Funkcja Lambda (przetwarzanie) | `zlecenia-processor-daniel` |
 | 5 | Rola wykonawcza funkcji przetwarzającej | `zlecenia-processor-lambda-daniel` |
 | 5 | Połączenie kolejka → funkcja | event source mapping (batch 5, ReportBatchItemFailures) |
+| 7 | Dostawca OIDC | `token.actions.githubusercontent.com` |
+| 7 | Rola wdrożeniowa GitHub Actions | `github-deploy-daniel` |
+| 7 | Repozytorium ECR (prywatne) | `zlecenia-rules-daniel` (obrazy `2804f97` = 2.0.0, `5eb3d46` = 2.0.1) |
 | – | Budżet | `budzet-uwb` (5 USD) |

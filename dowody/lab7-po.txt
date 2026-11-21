@@ -1,0 +1,3 @@
+2026-11-21 16:28:42 UTC  GET https://ggwh1qprfa.execute-api.eu-north-1.amazonaws.com/requests/d342f5a7-5b3c-4930-966f-87a8ed4d31fa
+HTTP/2 200 
+{"requestId": "d342f5a7-5b3c-4930-966f-87a8ed4d31fa", "status": "COMPLETED", "apiVersion": "2.0.0", "result": {"decision": "APPROVED", "reason": "IN_STOCK"}}

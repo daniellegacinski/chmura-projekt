@@ -1,0 +1,11 @@
+> docker build -f container/Dockerfile --build-arg APP_VERSION=lokalny -t zlecenia-rules:lokalny .
+> docker run -d --name reguly -p 127.0.0.1:8080:8080 zlecenia-rules:lokalny
+
+> POST http://localhost:8080/decide {"sku":"SKU-A","quantity":5}
+{"decision":"APPROVED","reason":"IN_STOCK","version":"lokalny","commit":"local"}
+
+> POST http://localhost:8080/decide {"sku":"SKU-A","quantity":6}
+{"decision":"REJECTED","reason":"OUT_OF_STOCK","version":"lokalny","commit":"local"}
+
+> POST http://localhost:8080/decide {"sku":"SKU-X","quantity":1}
+{"decision":"REJECTED","reason":"UNKNOWN_SKU","version":"lokalny","commit":"local"}
