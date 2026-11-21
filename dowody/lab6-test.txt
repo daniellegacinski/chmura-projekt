@@ -1,0 +1,73 @@
+=== 1. Testy lokalne modułu reguł ===
+test_normal_scenario_never_fails_transiently (test_rules.TestRules.test_normal_scenario_never_fails_transiently) ... ok
+test_quantity_above_stock_is_rejected (test_rules.TestRules.test_quantity_above_stock_is_rejected)
+Ilość o 1 większa niż stan magazynu jest odrzucona. ... ok
+test_quantity_equal_to_stock_is_approved (test_rules.TestRules.test_quantity_equal_to_stock_is_approved)
+Granica limitu: ilość równa stanowi magazynu jest zatwierdzona. ... ok
+test_reference_sample_gives_expected_rejections (test_rules.TestRules.test_reference_sample_gives_expected_rejections)
+Cała próbka z Lab 3: 1/4 standard, 3/4 limit, 0/4 retry. ... ok
+test_transient_once_fails_on_first_attempt (test_rules.TestRules.test_transient_once_fails_on_first_attempt) ... ok
+test_transient_once_uses_normal_rules_on_retry (test_rules.TestRules.test_transient_once_uses_normal_rules_on_retry) ... ok
+test_unknown_sku_is_rejected (test_rules.TestRules.test_unknown_sku_is_rejected) ... ok
+
+----------------------------------------------------------------------
+Ran 7 tests in 0.000s
+
+OK
+
+=== 2. Próbka z S3 przez działające API i analiza ===
+API: https://ggwh1qprfa.execute-api.eu-north-1.amazonaws.com
+Próbka: s3://zlecenia-daniel-uwb-2026/student-daniel/input/zlecenia.csv – 12 rekordów
+
+=== Wysyłka do API (każdy rekord dostaje nowy UUID) ===
+O01  standard  d342f5a7-5b3c-4930-966f-87a8ed4d31fa  POST -> 202
+O02  standard  cb46b3d8-ba36-472e-a0c0-136bf9e36769  POST -> 202
+O03  standard  457abe4a-725f-4d42-b6ab-354aa237f91f  POST -> 202
+O04  standard  d7a5f8d0-6299-455f-9947-14b66869e573  POST -> 202
+O05  limit     96dd4d2a-59ce-4ee4-a8e4-bbe13ce3e89f  POST -> 202
+O06  limit     29f8e324-4fe8-4626-a622-d0aba0a86de2  POST -> 202
+O07  limit     614ce066-acba-44c3-b7f3-ffc9b3832be6  POST -> 202
+O08  limit     91c2871a-523a-41f9-95ed-cc4a1ea9a162  POST -> 202
+O09  retry     05bd661b-22c2-4727-bbd7-92bfdcb094f0  POST -> 202
+O10  retry     2fbad2b2-febe-479d-969a-a75fa61da040  POST -> 202
+O11  retry     bb23b39a-e8f0-4c1b-bf9e-9dc3d8e0edeb  POST -> 202
+O12  retry     56667686-9d5d-4af4-911b-66335c20becf  POST -> 202
+
+=== Zbieranie wyników (GET co 10 s, maks. 5 min) ===
+  niezakończone: 7 – czekam 10 s
+  niezakończone: 4 – czekam 10 s
+  niezakończone: 4 – czekam 10 s
+  niezakończone: 4 – czekam 10 s
+  niezakończone: 4 – czekam 10 s
+  niezakończone: 4 – czekam 10 s
+
+=== Wynik per zlecenie (jedna decyzja na UUID) ===
+O01  standard  SKU-A  x 1  -> APPROVED IN_STOCK
+O02  standard  SKU-A  x 3  -> APPROVED IN_STOCK
+O03  standard  SKU-B  x 2  -> APPROVED IN_STOCK
+O04  standard  SKU-B  x 3  -> REJECTED OUT_OF_STOCK
+O05  limit     SKU-A  x 5  -> APPROVED IN_STOCK
+O06  limit     SKU-A  x 6  -> REJECTED OUT_OF_STOCK
+O07  limit     SKU-B  x 4  -> REJECTED OUT_OF_STOCK
+O08  limit     SKU-X  x 1  -> REJECTED UNKNOWN_SKU
+O09  retry     SKU-A  x 1  -> APPROVED IN_STOCK
+O10  retry     SKU-A  x 4  -> APPROVED IN_STOCK
+O11  retry     SKU-B  x 1  -> APPROVED IN_STOCK
+O12  retry     SKU-B  x 2  -> APPROVED IN_STOCK
+(zapisano: dowody/lab6-wyniki.csv)
+
+=== Odsetek odrzuceń biznesowych per grupa ===
+| Grupa | Zakończone | Odrzucone biznesowo | Odsetek |
+|---|---|---|---|
+| `standard` | 4 | 1 | 25% |
+| `limit` | 4 | 3 | 75% |
+| `retry` | 4 | 0 | 0% |
+
+=== Logi funkcji przetwarzającej dla O09 (05bd661b-22c2-4727-bbd7-92bfdcb094f0) ===
+{"requestId": "05bd661b-22c2-4727-bbd7-92bfdcb094f0", "stage": "processing", "result": "start_attempt_1"}
+{"requestId": "05bd661b-22c2-4727-bbd7-92bfdcb094f0", "stage": "processing", "result": "transient_failure_attempt_1"}
+{"requestId": "05bd661b-22c2-4727-bbd7-92bfdcb094f0", "stage": "processing", "result": "start_attempt_2"}
+{"requestId": "05bd661b-22c2-4727-bbd7-92bfdcb094f0", "stage": "processing", "result": "decision_saved:APPROVED:IN_STOCK"}
+
+GET /requests/05bd661b-22c2-4727-bbd7-92bfdcb094f0
+{"requestId": "05bd661b-22c2-4727-bbd7-92bfdcb094f0", "status": "COMPLETED", "apiVersion": "1.1.0", "result": {"decision": "APPROVED", "reason": "IN_STOCK"}}

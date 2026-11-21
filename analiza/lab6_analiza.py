@@ -36,6 +36,15 @@ def http(method, url, body=None):
         return exc.code, json.loads(exc.read() or b"{}")
 
 
+def log_events(request_id):
+    """Wszystkie wpisy z logów dla ID (CloudWatch zwraca wyniki stronami)."""
+    paginator = boto3.client("logs").get_paginator("filter_log_events")
+    events = []
+    for page in paginator.paginate(logGroupName=PROC_LOG_GROUP, filterPattern=f'"{request_id}"'):
+        events.extend(page["events"])
+    return sorted(events, key=lambda e: e["timestamp"])
+
+
 def main():
     api = api_url()
     raw = boto3.client("s3").get_object(Bucket=BUCKET, Key=KEY)["Body"].read().decode("utf-8")
@@ -96,10 +105,8 @@ def main():
 
     retry = next(r for r in rows if r["group"] == "retry")
     print(f"\n=== Kolejne próby dla {retry['caseId']} (transient_once), ID {retry['requestId']} ===")
-    time.sleep(10)
-    events = boto3.client("logs").filter_log_events(
-        logGroupName=PROC_LOG_GROUP, filterPattern=f'"{retry["requestId"]}"')["events"]
-    for event in sorted(events, key=lambda e: e["timestamp"]):
+    time.sleep(15)
+    for event in log_events(retry["requestId"]):
         when = time.strftime("%H:%M:%S", time.gmtime(event["timestamp"] / 1000))
         print(f"{when} UTC  {event['message'].strip()}")
     _, body = http("GET", f"{api}/requests/{retry['requestId']}")

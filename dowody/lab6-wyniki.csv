@@ -1,0 +1,13 @@
+caseId,group,scenario,sku,quantity,requestId,decision,reason
+O01,standard,normal,SKU-A,1,d342f5a7-5b3c-4930-966f-87a8ed4d31fa,APPROVED,IN_STOCK
+O02,standard,normal,SKU-A,3,cb46b3d8-ba36-472e-a0c0-136bf9e36769,APPROVED,IN_STOCK
+O03,standard,normal,SKU-B,2,457abe4a-725f-4d42-b6ab-354aa237f91f,APPROVED,IN_STOCK
+O04,standard,normal,SKU-B,3,d7a5f8d0-6299-455f-9947-14b66869e573,REJECTED,OUT_OF_STOCK
+O05,limit,normal,SKU-A,5,96dd4d2a-59ce-4ee4-a8e4-bbe13ce3e89f,APPROVED,IN_STOCK
+O06,limit,normal,SKU-A,6,29f8e324-4fe8-4626-a622-d0aba0a86de2,REJECTED,OUT_OF_STOCK
+O07,limit,normal,SKU-B,4,614ce066-acba-44c3-b7f3-ffc9b3832be6,REJECTED,OUT_OF_STOCK
+O08,limit,normal,SKU-X,1,91c2871a-523a-41f9-95ed-cc4a1ea9a162,REJECTED,UNKNOWN_SKU
+O09,retry,transient_once,SKU-A,1,05bd661b-22c2-4727-bbd7-92bfdcb094f0,APPROVED,IN_STOCK
+O10,retry,transient_once,SKU-A,4,2fbad2b2-febe-479d-969a-a75fa61da040,APPROVED,IN_STOCK
+O11,retry,transient_once,SKU-B,1,bb23b39a-e8f0-4c1b-bf9e-9dc3d8e0edeb,APPROVED,IN_STOCK
+O12,retry,transient_once,SKU-B,2,56667686-9d5d-4af4-911b-66335c20becf,APPROVED,IN_STOCK
