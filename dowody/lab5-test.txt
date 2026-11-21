@@ -1,0 +1,99 @@
+API: https://ggwh1qprfa.execute-api.eu-north-1.amazonaws.com
+requestId testu: 3df2533f-969e-4287-8239-4cce87d732e0
+
+=== 1. Wyłączam połączenie kolejka -> funkcja przetwarzająca ===
+stan połączenia kolejka -> funkcja: Disabled
+
+(dodatkowe 60 s, aż wyłączenie dotrze do wszystkich odbiorców kolejki)
+=== 2. POST nowe zlecenie przy wstrzymanym konsumencie -> oczekiwane 202 ===
+> POST /requests
+HTTP/2 202 
+location: /requests/3df2533f-969e-4287-8239-4cce87d732e0
+{"requestId": "3df2533f-969e-4287-8239-4cce87d732e0", "status": "PENDING", "apiVersion": "1.1.0"}
+
+
+=== 3. GET -> oczekiwane PENDING ===
+> GET /requests/3df2533f-969e-4287-8239-4cce87d732e0
+HTTP/2 200 
+{"requestId": "3df2533f-969e-4287-8239-4cce87d732e0", "status": "PENDING", "apiVersion": "1.1.0"}
+
+
+=== 4. Włączam połączenie ===
+stan połączenia kolejka -> funkcja: Enabled
+
+=== 5. GET co 5 s aż do COMPLETED ===
+[5 s] {"requestId": "3df2533f-969e-4287-8239-4cce87d732e0", "status": "COMPLETED", "apiVersion": "1.1.0", "result": {"decision": "APPROVED", "reason": "IN_STOCK"}}
+
+=== 6. Ponowny POST zakończonego zlecenia -> oczekiwane 200 z wynikiem ===
+> POST /requests
+HTTP/2 200 
+location: /requests/3df2533f-969e-4287-8239-4cce87d732e0
+{"requestId": "3df2533f-969e-4287-8239-4cce87d732e0", "status": "COMPLETED", "apiVersion": "1.1.0", "result": {"decision": "APPROVED", "reason": "IN_STOCK"}}
+
+
+=== 7. POST zmienione dane, to samo ID -> oczekiwane 409 ===
+> POST /requests
+HTTP/2 409 
+{"error": "CONFLICT", "message": "Zlecenie o tym requestId istnieje z innymi danymi."}
+
+
+=== 8. Ponowne dostarczenie tej samej wiadomości do kolejki ===
+Stan PRZED:
+> dynamodb get-item 3df2533f-969e-4287-8239-4cce87d732e0
+{
+    "status": "COMPLETED",
+    "decision": "APPROVED",
+    "reason": "IN_STOCK",
+    "completedAt": "2026-11-21T15:05:30.897378+00:00"
+}
+
+> sqs send-message {"requestId":"3df2533f-969e-4287-8239-4cce87d732e0"}
+ca19cccd-2c25-4f99-962b-c41eac5367ed
+Stan PO (completedAt bez zmian = brak drugiego zapisu):
+> dynamodb get-item 3df2533f-969e-4287-8239-4cce87d732e0
+{
+    "status": "COMPLETED",
+    "decision": "APPROVED",
+    "reason": "IN_STOCK",
+    "completedAt": "2026-11-21T15:05:30.897378+00:00"
+}
+
+=== 9. Błąd wysyłki do SQS -> oczekiwane 503 i rekord PENDING ===
+(symulacja: funkcja API wskazuje na nieistniejącą kolejkę)
+> POST /requests
+HTTP/2 503 
+{"error": "QUEUE_UNAVAILABLE", "message": "Nie udało się przekazać zlecenia do kolejki. Ponów żądanie z tym samym requestId."}
+
+
+> dynamodb get-item e2274ccb-20de-4d31-bfee-1629acc16f42
+{
+    "status": "PENDING",
+    "decision": null,
+    "reason": null,
+    "completedAt": null
+}
+
+(przywrócono poprawny adres kolejki)
+=== 10. Ponowienie z tym samym ID przy istniejącym PENDING -> oczekiwane 202, potem COMPLETED ===
+> POST /requests
+HTTP/2 202 
+location: /requests/e2274ccb-20de-4d31-bfee-1629acc16f42
+{"requestId": "e2274ccb-20de-4d31-bfee-1629acc16f42", "status": "PENDING", "apiVersion": "1.1.0"}
+
+
+[5 s] {"requestId": "e2274ccb-20de-4d31-bfee-1629acc16f42", "status": "PENDING", "apiVersion": "1.1.0"}
+[10 s] {"requestId": "e2274ccb-20de-4d31-bfee-1629acc16f42", "status": "COMPLETED", "apiVersion": "1.1.0", "result": {"decision": "APPROVED", "reason": "IN_STOCK"}}
+
+=== 11. CloudWatch Logs dla 3df2533f-969e-4287-8239-4cce87d732e0 ===
+-- funkcja API:
+{"requestId": "3df2533f-969e-4287-8239-4cce87d732e0", "stage": "post", "result": "pending_saved"}
+        {"requestId": "3df2533f-969e-4287-8239-4cce87d732e0", "stage": "post", "result": "queued"}
+        {"requestId": "3df2533f-969e-4287-8239-4cce87d732e0", "stage": "get", "result": "found"}
+        {"requestId": "3df2533f-969e-4287-8239-4cce87d732e0", "stage": "get", "result": "found"}
+        {"requestId": "3df2533f-969e-4287-8239-4cce87d732e0", "stage": "post", "result": "already_completed"}
+        {"requestId": "3df2533f-969e-4287-8239-4cce87d732e0", "stage": "post", "result": "conflict_changed_data"}
+
+-- funkcja przetwarzająca:
+{"requestId": "3df2533f-969e-4287-8239-4cce87d732e0", "stage": "processing", "result": "start"}
+        {"requestId": "3df2533f-969e-4287-8239-4cce87d732e0", "stage": "processing", "result": "decision_saved:APPROVED"}
+        {"requestId": "3df2533f-969e-4287-8239-4cce87d732e0", "stage": "processing", "result": "already_completed_skip"}
