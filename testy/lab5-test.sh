@@ -60,6 +60,7 @@ wait_completed() {
   echo "=== 1. Wyłączam połączenie kolejka -> funkcja przetwarzająca ==="
   aws lambda update-event-source-mapping --uuid "$ESM" --no-enabled >/dev/null
   wait_esm Disabled
+  echo "(dodatkowe 60 s, aż wyłączenie dotrze do wszystkich odbiorców kolejki)"; sleep 60
 
   echo "=== 2. POST nowe zlecenie przy wstrzymanym konsumencie -> oczekiwane 202 ==="
   req POST /requests "$(body $ID SKU-A 2)"
