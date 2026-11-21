@@ -1,0 +1,9 @@
+.env
+.git
+.github
+dowody
+dane
+analiza
+infra
+testy
+*.zip
