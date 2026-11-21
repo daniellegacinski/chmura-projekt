@@ -1,0 +1,56 @@
+API: https://ggwh1qprfa.execute-api.eu-north-1.amazonaws.com
+Nowe requestId: cbbae324-4f2c-47c0-8e2d-1deacdf36662
+
+=== 1. POST nowe zlecenie -> oczekiwane 202 ===
+> POST /requests
+HTTP/2 202 
+location: /requests/cbbae324-4f2c-47c0-8e2d-1deacdf36662
+{"requestId": "cbbae324-4f2c-47c0-8e2d-1deacdf36662", "status": "PENDING", "apiVersion": "2.0.1"}
+
+
+=== 2. GET od razu pod zwroconym adresem ===
+> GET /requests/cbbae324-4f2c-47c0-8e2d-1deacdf36662
+HTTP/2 200 
+{"requestId": "cbbae324-4f2c-47c0-8e2d-1deacdf36662", "status": "PENDING", "apiVersion": "2.0.1"}
+
+
+=== 3. GET co 3 s az do COMPLETED ===
+[3 s] {"requestId": "cbbae324-4f2c-47c0-8e2d-1deacdf36662", "status": "PENDING", "apiVersion": "2.0.1"}
+[6 s] {"requestId": "cbbae324-4f2c-47c0-8e2d-1deacdf36662", "status": "COMPLETED", "apiVersion": "2.0.1", "result": {"decision": "APPROVED", "reason": "IN_STOCK"}}
+
+=== 4. Ponowienie tego samego zlecenia -> oczekiwane 200, wynik zachowany ===
+> POST /requests
+HTTP/2 200 
+location: /requests/cbbae324-4f2c-47c0-8e2d-1deacdf36662
+{"requestId": "cbbae324-4f2c-47c0-8e2d-1deacdf36662", "status": "COMPLETED", "apiVersion": "2.0.1", "result": {"decision": "APPROVED", "reason": "IN_STOCK"}}
+
+
+=== 5. Rekord w DynamoDB (stan koncowy) ===
+{
+    "status": "COMPLETED",
+    "decision": "APPROVED",
+    "reason": "IN_STOCK",
+    "attempts": "1",
+    "createdAt": "2026-11-21T17:22:23.407679+00:00",
+    "completedAt": "2026-11-21T17:22:24.602491+00:00"
+}
+
+=== 6. Logi funkcji API (zlecenia-api-daniel) dla tego ID ===
+{"requestId": "cbbae324-4f2c-47c0-8e2d-1deacdf36662", "stage": "post", "result": "pending_saved"}
+{"requestId": "cbbae324-4f2c-47c0-8e2d-1deacdf36662", "stage": "post", "result": "queued"}
+{"requestId": "cbbae324-4f2c-47c0-8e2d-1deacdf36662", "stage": "get", "result": "found"}
+{"requestId": "cbbae324-4f2c-47c0-8e2d-1deacdf36662", "stage": "get", "result": "found"}
+{"requestId": "cbbae324-4f2c-47c0-8e2d-1deacdf36662", "stage": "get", "result": "found"}
+{"requestId": "cbbae324-4f2c-47c0-8e2d-1deacdf36662", "stage": "post", "result": "already_completed"}
+
+=== 7. Logi funkcji przetwarzajacej (zlecenia-processor-daniel) dla tego ID ===
+{"requestId": "cbbae324-4f2c-47c0-8e2d-1deacdf36662", "stage": "processing", "result": "start_attempt_1"}
+{"requestId": "cbbae324-4f2c-47c0-8e2d-1deacdf36662", "stage": "processing", "result": "decision_saved:APPROVED:IN_STOCK"}
+
+=== 8. Role wykonawcze ===
+funkcja API (wysyla do SQS):         arn:aws:iam::XXXXXXXXXXXX:role/zlecenia-api-lambda-daniel
+funkcja przetwarzajaca (czyta SQS):   arn:aws:iam::XXXXXXXXXXXX:role/zlecenia-processor-lambda-daniel
+
+=== 9. Wersja dzialajacej trasy ===
+API_VERSION funkcji: 2.0.1
+Wdrozona przez GitHub Actions (commit 9f6ea68): https://github.com/daniellegacinski/chmura-projekt/actions/runs/44928925441

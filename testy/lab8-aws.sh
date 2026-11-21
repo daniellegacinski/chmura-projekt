@@ -69,5 +69,5 @@ logs() {
 
   echo "=== 9. Wersja dzialajacej trasy ==="
   echo "API_VERSION funkcji: $(aws lambda get-function-configuration --function-name $API_FUNC --query Environment.Variables.API_VERSION --output text)"
-  echo "Wdrozona przez GitHub Actions (commit 5eb3d46): https://github.com/daniellegacinski/chmura-projekt/actions/runs/44924926187"
+  echo "Wdrozona przez GitHub Actions (commit 9f6ea68): https://github.com/daniellegacinski/chmura-projekt/actions/runs/44928925441"
 } 2>&1 | sed "s/$ACCOUNT/XXXXXXXXXXXX/g" | tee dowody/lab8-aws.txt

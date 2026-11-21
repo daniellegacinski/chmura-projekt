@@ -11,7 +11,7 @@
 - Adres: `https://ggwh1qprfa.execute-api.eu-north-1.amazonaws.com` (HTTP API, etap `$default`)
 - Dostęp do tras: bez autoryzacji (`NONE`), dane wyłącznie syntetyczne
 - `apiVersion`: tekst `MAJOR.MINOR.PATCH` (zmienna `API_VERSION` funkcji):
-  `1.0.0` w Lab 4, `1.1.0` od Lab 5, od Lab 7 ustawiana przez CI/CD z pliku `VERSION` (`2.0.0`, `2.0.1`)
+  `1.0.0` w Lab 4, `1.1.0` od Lab 5, od Lab 7 ustawiana przez CI/CD z pliku `VERSION` (`2.0.0`, obecnie `2.0.1`)
 - `POST /requests`, treść:
   `{"requestId": "<UUID>", "scenario": "normal" | "transient_once", "payload": {"sku": "SKU-A", "quantity": 2}}`
   - `sku`: `SKU-` + wielkie litery/cyfry, `quantity`: liczba całkowita 1–1000
@@ -46,6 +46,16 @@ To samo `requestId` jest w API, wiadomości, tabeli i logach.
 - Obraz z modułem reguł (`container/`): prywatne ECR `zlecenia-rules-daniel`, tag = 7 znaków SHA commita
 - Commity z samymi dowodami mają w opisie `[skip ci]`, żeby nie uruchamiać wdrożenia
 
+## Kubernetes (Lab 8)
+- Lokalny klaster: Docker Desktop, tryb kubeadm, kontekst `docker-desktop`
+- Manifesty: `k8s/deployment.yaml` (2 repliki, sondy `/health`), `k8s/service.yaml` (NodePort `30080`)
+- Test aktualizacji i rollbacku: `powershell -ExecutionPolicy Bypass -File testy\lab8-k8s.ps1`
+- Kolejność: wersja 1 (`2804f97`, 2.0.0) → wersja 2 (`9f6ea68`, 2.0.1) → rollback do wersji 1
+
+## Sprzątanie po odbiorze
+- AWS: `bash infra/sprzatanie.sh` w CloudShell (pyta o potwierdzenie; najpierw wstrzymuje przyjmowanie zleceń i wyłącza połączenie kolejka → funkcja)
+- Lokalnie: `kubectl delete -f k8s/`
+
 ## Moje zasoby
 | Lab | Zasób | Nazwa |
 |---|---|---|
@@ -61,5 +71,6 @@ To samo `requestId` jest w API, wiadomości, tabeli i logach.
 | 5 | Połączenie kolejka → funkcja | event source mapping (batch 5, ReportBatchItemFailures) |
 | 7 | Dostawca OIDC | `token.actions.githubusercontent.com` |
 | 7 | Rola wdrożeniowa GitHub Actions | `github-deploy-daniel` |
-| 7 | Repozytorium ECR (prywatne) | `zlecenia-rules-daniel` (obrazy `2804f97` = 2.0.0, `5eb3d46` = 2.0.1) |
+| 7 | Repozytorium ECR (prywatne) | `zlecenia-rules-daniel` (obrazy `2804f97` = 2.0.0, `9f6ea68` = 2.0.1; `5eb3d46` błędny) |
+| 8 | Lokalny Kubernetes (Docker Desktop, kubeadm) | `k8s/deployment.yaml`, `k8s/service.yaml` (NodePort 30080) |
 | – | Budżet | `budzet-uwb` (5 USD) |
