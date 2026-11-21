@@ -1,0 +1,64 @@
+API: https://ggwh1qprfa.execute-api.eu-north-1.amazonaws.com
+requestId testu: 5daf5aee-89a6-4fb3-8ec8-146dc2415499
+
+=== 1. POST nowe zlecenie -> oczekiwane 201 ===
+> POST /requests
+HTTP/2 201 
+location: /requests/5daf5aee-89a6-4fb3-8ec8-146dc2415499
+{"requestId": "5daf5aee-89a6-4fb3-8ec8-146dc2415499", "status": "DRAFT", "apiVersion": "1.0.0"}
+
+
+=== 2. GET pod zwrócony adres -> oczekiwane 200, DRAFT, apiVersion ===
+> GET /requests/5daf5aee-89a6-4fb3-8ec8-146dc2415499
+HTTP/2 200 
+{"requestId": "5daf5aee-89a6-4fb3-8ec8-146dc2415499", "status": "DRAFT", "apiVersion": "1.0.0"}
+
+
+=== 3. POST te same dane -> oczekiwane 200 ===
+> POST /requests
+HTTP/2 200 
+location: /requests/5daf5aee-89a6-4fb3-8ec8-146dc2415499
+{"requestId": "5daf5aee-89a6-4fb3-8ec8-146dc2415499", "status": "DRAFT", "apiVersion": "1.0.0"}
+
+
+=== 4. POST zmienione dane, to samo ID -> oczekiwane 409 ===
+> POST /requests
+HTTP/2 409 
+{"error": "CONFLICT", "message": "Zlecenie o tym requestId istnieje z innymi danymi."}
+
+
+=== 5. Stan w DynamoDB -> jeden DRAFT, quantity nadal 2 ===
+> dynamodb get-item 5daf5aee-89a6-4fb3-8ec8-146dc2415499
+{
+    "status": "DRAFT",
+    "sku": "SKU-A",
+    "quantity": "2"
+}
+
+=== 6. POST błąd składni JSON -> oczekiwane 400 ===
+> POST /requests
+HTTP/2 400 
+{"error": "INVALID_JSON", "message": "Tre\u015b\u0107 \u017c\u0105dania nie jest poprawnym JSON-em."}
+
+
+=== 7. POST wartość spoza kontraktu (quantity -5) -> oczekiwane 400 ===
+> POST /requests
+HTTP/2 400 
+{"error": "INVALID_INPUT", "message": "quantity musi by\u0107 liczb\u0105 ca\u0142kowit\u0105 od 1 do 1000."}
+
+
+=== 8. Po błędach 400 nic nie zapisano (oczekiwane null) ===
+> dynamodb get-item 10b1ee0d-1444-41cb-bd1e-050a7338e1ad
+null
+
+=== 9. GET innego poprawnego UUID -> oczekiwane 404 ===
+> GET /requests/e105cf5a-6b04-40a3-ade7-08b35c252f65
+HTTP/2 404 
+{"error": "NOT_FOUND", "message": "Nie ma zlecenia o tym requestId."}
+
+
+=== 10. CloudWatch Logs dla 5daf5aee-89a6-4fb3-8ec8-146dc2415499 ===
+{"requestId": "5daf5aee-89a6-4fb3-8ec8-146dc2415499", "stage": "post", "result": "draft_created"}
+        {"requestId": "5daf5aee-89a6-4fb3-8ec8-146dc2415499", "stage": "get", "result": "found"}
+        {"requestId": "5daf5aee-89a6-4fb3-8ec8-146dc2415499", "stage": "post", "result": "already_exists_same_data"}
+        {"requestId": "5daf5aee-89a6-4fb3-8ec8-146dc2415499", "stage": "post", "result": "conflict_changed_data"}
