@@ -1,0 +1,14 @@
+services:
+  localstack:
+    image: localstack/localstack
+    ports:
+      - "127.0.0.1:4566:4566"
+    dns:
+      - 8.8.8.8
+      - 1.1.1.1
+    environment:
+      - LOCALSTACK_AUTH_TOKEN=${LOCALSTACK_AUTH_TOKEN:-}
+      - SERVICES=s3,lambda,iam,logs,sts
+      - ENFORCE_IAM=1
+    volumes:
+      - "/var/run/docker.sock:/var/run/docker.sock"

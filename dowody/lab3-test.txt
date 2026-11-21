@@ -1,0 +1,45 @@
+﻿=== 1. Tozsamosc przed przyjeciem roli (administrator) ===
+> aws sts get-caller-identity
+{
+    "UserId": "AROAZJLGSFAFQQ2C4ADV2:44a8f4d8-1011-7019-58ac-7a14e70b7530",
+    "Account": "XXXXXXXXXXXX",
+    "Arn": "arn:aws:sts::XXXXXXXXXXXX:assumed-role/AccountFullAccessRole/44a8f4d8-1011-7019-58ac-7a14e70b7530"
+}
+
+=== 2. Tozsamosc po przyjeciu roli odczyt-zlecen-daniel ===
+> aws sts get-caller-identity
+{
+    "UserId": "AROAZJLGSFAFREFUUORVA:test-odczytu",
+    "Account": "XXXXXXXXXXXX",
+    "Arn": "arn:aws:sts::XXXXXXXXXXXX:assumed-role/odczyt-zlecen-daniel/test-odczytu"
+}
+
+=== 3. Odczyt wlasnego pliku (prefiks student-daniel/) - oczekiwany sukces ===
+> aws s3 cp s3://zlecenia-daniel-uwb-2026/student-daniel/input/zlecenia.csv -
+caseId,group,scenario,sku,quantity
+O01,standard,normal,SKU-A,1
+O02,standard,normal,SKU-A,3
+O03,standard,normal,SKU-B,2
+O04,standard,normal,SKU-B,3
+O05,limit,normal,SKU-A,5
+O06,limit,normal,SKU-A,6
+O07,limit,normal,SKU-B,4
+O08,limit,normal,SKU-X,1
+O09,retry,transient_once,SKU-A,1
+O10,retry,transient_once,SKU-A,4
+O11,retry,transient_once,SKU-B,1
+O12,retry,transient_once,SKU-B,2
+
+=== 4. Odczyt obiektu kontrolnego (prefiks kontrola/) - oczekiwane AccessDenied ===
+> aws s3api get-object --bucket zlecenia-daniel-uwb-2026 --key kontrola/kontrolny.csv /tmp/kontrolny.csv
+
+aws: [ERROR]: An error occurred (AccessDenied) when calling the GetObject operation: User: arn:aws:sts::XXXXXXXXXXXX:assumed-role/odczyt-zlecen-daniel/test-odczytu is not authorized to perform: s3:GetObject on resource: "arn:aws:s3:::zlecenia-daniel-uwb-2026/kontrola/kontrolny.csv" because no identity-based policy allows the s3:GetObject action
+
+=== 5. Listowanie wlasnego prefiksu - oczekiwany sukces ===
+> aws s3 ls s3://zlecenia-daniel-uwb-2026/student-daniel/ --recursive
+2026-11-21 14:05:03        379 student-daniel/input/zlecenia.csv
+
+=== 6. Listowanie prefiksu kontrolnego - oczekiwane AccessDenied ===
+> aws s3 ls s3://zlecenia-daniel-uwb-2026/kontrola/
+
+aws: [ERROR]: An error occurred (AccessDenied) when calling the ListObjectsV2 operation: User: arn:aws:sts::XXXXXXXXXXXX:assumed-role/odczyt-zlecen-daniel/test-odczytu is not authorized to perform: s3:ListBucket on resource: "arn:aws:s3:::zlecenia-daniel-uwb-2026" because no identity-based policy allows the s3:ListBucket action
