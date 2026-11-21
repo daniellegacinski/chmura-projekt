@@ -34,17 +34,20 @@ https://github.com/daniellegacinski/chmura-projekt/actions/runs/44922317966
 Wdrożenie wersji 2.0.0 (merge PR #1, commit `2804f97`):
 https://github.com/daniellegacinski/chmura-projekt/actions/runs/44922974832
 
-Wdrożenie wersji 2.0.1 (commit `5eb3d46`):
-https://github.com/daniellegacinski/chmura-projekt/actions/runs/44924926187
+Wdrożenie wersji 2.0.1 (commit `9f6ea68`):
+https://github.com/daniellegacinski/chmura-projekt/actions/runs/44928925441
 
 Prywatne ECR `zlecenia-rules-daniel` (tagi niezmienne, skanowanie przy wysyłce):
 
 | Tag (commit) | Wersja | Digest |
 |---|---|---|
 | `2804f97` | 2.0.0 | `sha256:1686c64ba60f8f1bccf85b4bc32f20dea3c27c1b29cca0c15f56bcea5084a0b5` |
-| `5eb3d46` | 2.0.1 | `sha256:cef1028daf9e2109cb39e0b8dd6c655f29657974be7baba465a0e32202690858` |
+| `5eb3d46` | **błędny** – patrz niżej | `sha256:cef1028daf9e2109cb39e0b8dd6c655f29657974be7baba465a0e32202690858` |
+| `9f6ea68` | 2.0.1 | `sha256:7255773612d8aa5f3149aab380b6a30156387c05e73a8c1e05c95f619c42f34e` |
 
-Oba obrazy odpowiadają rozróżnialną wersją (`"version"`) – potrzebne do aktualizacji i rollbacku w Lab 8.
+**Błąd i poprawka:** w commicie `5eb3d46` do pliku `VERSION` trafił omyłkowo tekst komendy zamiast `2.0.1`. Pipeline przyjął go jako wersję, więc obraz `5eb3d46` i API miały błędne `apiVersion`. Commit `9f6ea68` przywrócił `VERSION = 2.0.1`; pipeline wdrożył poprawną wersję i zbudował obraz `9f6ea68`. Obraz `5eb3d46` nie jest używany.
+
+Obrazy `2804f97` (2.0.0) i `9f6ea68` (2.0.1) odpowiadają rozróżnialną wersją – użyte do aktualizacji i rollbacku w Lab 8.
 
 ## Dowód 2 – odpowiedzi HTTP przed i po wdrożeniu
 To samo zlecenie (O01 z Lab 6, `d342f5a7-…`) pod tym samym adresem API:
@@ -54,3 +57,5 @@ To samo zlecenie (O01 z Lab 6, `d342f5a7-…`) pod tym samym adresem API:
 | Czas | 15:41 UTC | 16:28 UTC |
 | `apiVersion` | `1.1.0` | **`2.0.0`** |
 | Wynik | `APPROVED / IN_STOCK` | `APPROVED / IN_STOCK` (bez zmian) |
+
+Po wdrożeniu `9f6ea68` (17:22 UTC) to samo zlecenie zwraca `apiVersion: 2.0.1`, wynik nadal `APPROVED / IN_STOCK`.
