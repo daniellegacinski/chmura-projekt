@@ -21,6 +21,6 @@ def decide(sku, quantity, scenario, attempt):
         raise TransientFailure("kontrolowany błąd pierwszej próby")
     if sku not in STOCK:
         return {"decision": "REJECTED", "reason": "UNKNOWN_SKU"}
-    if quantity >= STOCK[sku]:
+    if quantity > STOCK[sku]:
         return {"decision": "REJECTED", "reason": "OUT_OF_STOCK"}
     return {"decision": "APPROVED", "reason": "IN_STOCK"}
