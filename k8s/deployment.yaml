@@ -1,0 +1,47 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: zlecenia-rules
+  labels:
+    app: zlecenia-rules
+  annotations:
+    kubernetes.io/change-cause: "obraz 2804f97 (2.0.0)"
+spec:
+  replicas: 2
+  revisionHistoryLimit: 5
+  selector:
+    matchLabels:
+      app: zlecenia-rules
+  template:
+    metadata:
+      labels:
+        app: zlecenia-rules
+    spec:
+      containers:
+        - name: reguly
+          # Obraz z commita 2804f97 (wersja 2.0.0), zbudowany lokalnie
+          image: zlecenia-rules-daniel:2804f97
+          imagePullPolicy: Never
+          ports:
+            - containerPort: 8080
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            periodSeconds: 3
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: 50m
+              memory: 32Mi
+            limits:
+              cpu: 200m
+              memory: 128Mi
+          securityContext:
+            runAsUser: 65534
+            runAsNonRoot: true
+            allowPrivilegeEscalation: false
