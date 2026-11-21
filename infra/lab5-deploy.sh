@@ -48,7 +48,7 @@ aws iam put-role-policy --role-name $PROC_ROLE --policy-name processor-sqs-dynam
 
 echo "== 4. Funkcja przetwarzająca =="
 rm -f /tmp/processor.zip
-(cd src/processor && zip -q /tmp/processor.zip handler.py)
+(cd src/processor && zip -q /tmp/processor.zip handler.py rules.py)
 if aws lambda get-function --function-name $PROC_FUNC >/dev/null 2>&1; then
   aws lambda update-function-code --function-name $PROC_FUNC --zip-file fileb:///tmp/processor.zip >/dev/null
   aws lambda wait function-updated-v2 --function-name $PROC_FUNC

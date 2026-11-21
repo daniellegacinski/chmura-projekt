@@ -28,6 +28,14 @@
 Minimalna treść: `{"requestId": "<UUID>"}`. Dane zlecenia funkcja przetwarzająca czyta z DynamoDB.
 To samo `requestId` jest w API, wiadomości, tabeli i logach.
 
+## Reguły biznesowe (od Lab 6)
+- Moduł: `src/processor/rules.py` (bez SQS i DynamoDB)
+- Stan magazynu (jeden dla wszystkich zleceń): `SKU-A` = 5, `SKU-B` = 2
+- `quantity` ≤ stan → `APPROVED` / `IN_STOCK`; większa ilość → `REJECTED` / `OUT_OF_STOCK`; inny SKU → `REJECTED` / `UNKNOWN_SKU`
+- `scenario=transient_once`: pierwsza próba kończy się kontrolowanym błędem, wiadomość wraca do kolejki, kolejna próba stosuje zwykłe reguły
+- Chwilowy błąd nie jest odrzuceniem biznesowym: zlecenie zostaje `PENDING` do udanej próby
+- Testy: `python3 -m unittest discover -s testy -p 'test_*.py' -v`
+
 ## Moje zasoby
 | Lab | Zasób | Nazwa |
 |---|---|---|
