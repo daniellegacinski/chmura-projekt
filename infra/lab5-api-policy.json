@@ -1,0 +1,26 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "TabelaZlecen",
+      "Effect": "Allow",
+      "Action": ["dynamodb:PutItem", "dynamodb:GetItem", "dynamodb:UpdateItem"],
+      "Resource": "__TABLE_ARN__"
+    },
+    {
+      "Sid": "WysylkaDoKolejki",
+      "Effect": "Allow",
+      "Action": "sqs:SendMessage",
+      "Resource": "__QUEUE_ARN__"
+    },
+    {
+      "Sid": "Logi",
+      "Effect": "Allow",
+      "Action": ["logs:CreateLogGroup", "logs:CreateLogStream", "logs:PutLogEvents"],
+      "Resource": [
+        "arn:aws:logs:__REGION__:__ACCOUNT_ID__:log-group:/aws/lambda/__FUNC_NAME__",
+        "arn:aws:logs:__REGION__:__ACCOUNT_ID__:log-group:/aws/lambda/__FUNC_NAME__:*"
+      ]
+    }
+  ]
+}

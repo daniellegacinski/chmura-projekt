@@ -1,7 +1,7 @@
-"""API zleceń (wariant: zamówienia) – Lab 4.
+"""API zleceń (wariant: zamówienia).
 
-POST /requests      -> zapis szkicu (DRAFT) w DynamoDB
-GET  /requests/{id} -> odczyt stanu po ID
+Lab 4: POST /requests zapisywał DRAFT.
+Lab 5: POST zapisuje PENDING i wysyła wiadomość do SQS; 202 dopiero po potwierdzeniu wysyłki.
 """
 import base64
 import json
@@ -10,10 +10,11 @@ import re
 from datetime import datetime, timezone
 
 import boto3
-from botocore.exceptions import ClientError
+from botocore.exceptions import BotoCoreError, ClientError
 
 TABLE_NAME = os.environ["TABLE_NAME"]
-API_VERSION = os.environ.get("API_VERSION", "1.0.0")
+QUEUE_URL = os.environ["QUEUE_URL"]
+API_VERSION = os.environ.get("API_VERSION", "1.1.0")
 
 UUID_RE = re.compile(r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$")
 SKU_RE = re.compile(r"^SKU-[A-Z0-9]{1,20}$")
@@ -21,6 +22,11 @@ SCENARIOS = {"normal", "transient_once"}
 MAX_QUANTITY = 1000
 
 table = boto3.resource("dynamodb").Table(TABLE_NAME)
+sqs = boto3.client("sqs")
+
+
+def now():
+    return datetime.now(timezone.utc).isoformat()
 
 
 def log(request_id, stage, result):
@@ -29,9 +35,9 @@ def log(request_id, stage, result):
 
 
 def respond(status, body, headers=None):
-    all_headers = {"Content-Type": "application/json"}
+    all_headers = {"Content-Type": "application/json; charset=utf-8"}
     all_headers.update(headers or {})
-    return {"statusCode": status, "headers": all_headers, "body": json.dumps(body)}
+    return {"statusCode": status, "headers": all_headers, "body": json.dumps(body, ensure_ascii=False)}
 
 
 def error(status, code, message):
@@ -81,6 +87,26 @@ def same_request(item, data):
     )
 
 
+def send_to_queue(request_id):
+    """Minimalna wiadomość: tylko requestId. Resztę funkcja przetwarzająca czyta z DynamoDB."""
+    sqs.send_message(QueueUrl=QUEUE_URL, MessageBody=json.dumps({"requestId": request_id}))
+
+
+def promote_draft(request_id):
+    """Szkic z Lab 4 przechodzi w PENDING (DRAFT -> PENDING)."""
+    try:
+        table.update_item(
+            Key={"requestId": request_id},
+            UpdateExpression="SET #s = :pending",
+            ConditionExpression="#s = :draft",
+            ExpressionAttributeNames={"#s": "status"},
+            ExpressionAttributeValues={":pending": "PENDING", ":draft": "DRAFT"},
+        )
+    except ClientError as exc:
+        if exc.response["Error"]["Code"] != "ConditionalCheckFailedException":
+            raise
+
+
 def create_request(event):
     raw = event.get("body") or ""
     if event.get("isBase64Encoded"):
@@ -97,23 +123,35 @@ def create_request(event):
         return error(400, "INVALID_INPUT", problem)
 
     request_id = data["requestId"]
-    item = {**data, "status": "DRAFT", "createdAt": datetime.now(timezone.utc).isoformat()}
     location = {"Location": f"/requests/{request_id}"}
+    item = {**data, "status": "PENDING", "createdAt": now()}
     try:
-        # Zapis warunkowy: tworzy rekord tylko pod wolnym kluczem.
+        # Zapis warunkowy: nowy rekord tylko pod wolnym kluczem.
         table.put_item(Item=item, ConditionExpression="attribute_not_exists(requestId)")
+        log(request_id, "post", "pending_saved")
     except ClientError as exc:
         if exc.response["Error"]["Code"] != "ConditionalCheckFailedException":
             raise
         existing = table.get_item(Key={"requestId": request_id}, ConsistentRead=True)["Item"]
-        if same_request(existing, data):
-            log(request_id, "post", "already_exists_same_data")
+        if not same_request(existing, data):
+            log(request_id, "post", "conflict_changed_data")
+            return error(409, "CONFLICT", "Zlecenie o tym requestId istnieje z innymi danymi.")
+        if existing["status"] == "COMPLETED":
+            log(request_id, "post", "already_completed")
             return respond(200, public_view(existing), location)
-        log(request_id, "post", "conflict_changed_data")
-        return error(409, "CONFLICT", "Zlecenie o tym requestId istnieje z innymi danymi.")
+        if existing["status"] == "DRAFT":
+            promote_draft(request_id)
+        # Rekord PENDING już istnieje (np. po wcześniejszym 503) -> wysyłamy wiadomość ponownie.
+        log(request_id, "post", "retry_pending")
 
-    log(request_id, "post", "draft_created")
-    return respond(201, public_view(item), location)
+    try:
+        send_to_queue(request_id)
+    except (ClientError, BotoCoreError):
+        log(request_id, "post", "queue_send_failed")
+        return error(503, "QUEUE_UNAVAILABLE",
+                     "Nie udało się przekazać zlecenia do kolejki. Ponów żądanie z tym samym requestId.")
+    log(request_id, "post", "queued")
+    return respond(202, {"requestId": request_id, "status": "PENDING", "apiVersion": API_VERSION}, location)
 
 
 def get_request(event):
